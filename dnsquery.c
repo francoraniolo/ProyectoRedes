@@ -6,7 +6,6 @@
 #include <netinet/in.h>
 #include <unistd.h> //getpid, close()
 
-
 //Estructura Header DNS RFC 1035
 
 struct DNS_HEADER
@@ -84,6 +83,13 @@ void get_dns_servers();
 
 void ChangetoDnsNameFormat(unsigned char* dns,unsigned char* host);
 
+void validarConsulta(int argc, char *argv[]);
+
+void eliminarArrobaDeString(char* p);
+
+//Variables Globales necesarias
+unsigned char hostname[100];
+unsigned char dns_server[100];
 /*
  * 
  * 
@@ -92,8 +98,8 @@ void ChangetoDnsNameFormat(unsigned char* dns,unsigned char* host);
 
 
 int main( int argc , char *argv[]){
-
-    unsigned char hostname[100];
+    
+    //unsigned char hostname[100];
 
 
     //Get the DNS servers from the resolv.conf file
@@ -102,15 +108,19 @@ int main( int argc , char *argv[]){
     //Get the hostname from the terminal
     
     //Revisamos cantidad de argumentos
+
     if (argc>7 || argc<2){
-        perror("Cantidad invalida de argumentos \n");
+        printf("Error: Cantidad inválida de argumentos \n");
+        exit(EXIT_FAILURE); 
     }
     
+    validarConsulta(argc,argv);
 
+    printf("Su servidor dns es %s\n",dns_server);    
 
     
-    printf("Ingresa el nombre de Host a buscar : ");
-    scanf("%s" , hostname);
+    //printf("Ingresa el nombre de Host a buscar : ");
+    //scanf("%s" , hostname);
     
 
     //Now get the ip of this hostname , A record
@@ -145,7 +155,7 @@ void ngethostbyname(unsigned char *host , int query_type){
 
  dest.sin_family = AF_INET;  //Siempre va AD_INET
  dest.sin_port = htons((short)53);  //Paso numero de puerto de manera que se pueda entender en bits
- dest.sin_addr.s_addr = inet_addr("8.8.8.8");//inet_addr(dns_servers[0]); inet_addr("127.0.0.1")  dentro de la funcion va el ip del servidor dns en string
+ dest.sin_addr.s_addr =inet_addr(dns_server); //inet_addr("8.8.8.8");//inet_addr(dns_servers[0]); inet_addr("127.0.0.1")  dentro de la funcion va el ip del servidor dns en string
 
   //Seteamos la estructura DNS a las consultas estandar
  dns = (struct DNS_HEADER *)&buf;
@@ -325,6 +335,7 @@ void ngethostbyname(unsigned char *host , int query_type){
 
 u_char* ReadName(unsigned char* reader,unsigned char* buffer,int* count)
 {
+
     unsigned char *name;
     unsigned int p=0,jumped=0,offset;
     int i , j;
@@ -382,6 +393,7 @@ u_char* ReadName(unsigned char* reader,unsigned char* buffer,int* count)
  * */
 void get_dns_servers()
 {
+
     FILE *fp;
     char line[200] , *p;
     if((fp = fopen("/etc/resolv.conf" , "r")) == NULL)
@@ -431,5 +443,130 @@ void ChangetoDnsNameFormat(unsigned char* dns,unsigned char* host)
         }
     }
     *dns++='\0';
+}
+
+void validarConsulta(int argc,char *argv[])
+{
+    int i=0;
+    int consulta,servidor,amxloc,rt,h;
+    char srv[20]=""; 
+    char arroba;
+
+ for(i=1;i<argc;i++){
+    
+    if(strcmp(argv[i],"-h")==0)
+        {
+            if(h==1) {
+                printf("Parámetro -h repetido \n");
+                exit(EXIT_FAILURE);   
+                  }
+            h=1;
+        }
+    else{  
+    if(strcmp(argv[i],"-a")==0)
+        {
+            if(amxloc==1) {
+                printf("Parámetros excluyentes o repetidos \n");
+                exit(EXIT_FAILURE);   
+                       }
+            amxloc=1;     
+        }
+    else{    
+    if(strcmp(argv[i],"-mx")==0)
+    {
+            if(amxloc==1) {
+                printf("Parámetros excluyentes o repetidos \n");
+                exit(EXIT_FAILURE);   
+                  }
+            amxloc=1;     
+    }       
+    else{ 
+    if(strcmp(argv[i],"-loc")==0)
+    {
+            if(amxloc==1) {
+                printf("Parámetros excluyentes o repetidos \n");
+                exit(EXIT_FAILURE);   
+                  }
+            amxloc=1;     
+    }
+    else{
+    if(strcmp(argv[i],"-r")==0)
+    {
+            if(rt==1) {
+                printf("Parámetros excluyentes o repetidos \n");
+                exit(EXIT_FAILURE);   
+                  }
+            rt=1;     
+    }        
+    else{
+    if(strcmp(argv[i],"-t")==0)
+    {        
+            if(rt==1) {
+                printf("Parámetros excluyentes o repetidos \n");
+                exit(EXIT_FAILURE);   
+                  }
+            rt=1;     
+    }
+    else{
+        
+        if('@'==argv[i][0])   //Si esto pasa es el servidor!
+          { 
+           if(servidor==1)
+                {
+                    printf("Ingrese un único servidor por favor.\n");
+                    exit(EXIT_FAILURE);
+                }
+            servidor=1;
+            strcpy(dns_server,argv[i]);
+            eliminarArrobaDeString(dns_server);
+            
+          }
+        else{       //Si llegué acá es una consulta!
+            if(consulta==1)
+             {
+                 printf("Ingrese una única consulta por favor.\n");
+                 exit(EXIT_FAILURE);
+             }
+            strcpy(hostname,argv[i]);
+            consulta=1;
+        }  
+        }
+        }}}}}          
+  }//termina el for
+
+   if(consulta==0 && h==0){   //No hay consulta y no pidió ayuda
+            printf("Comando inválido. No hay consulta.\n");
+            exit(EXIT_FAILURE);
+        }
+        else
+        {
+         if(h==1){
+             printf("Ayuda \n"); //Imprimir ayuda
+             exit(EXIT_FAILURE); // Y termino el programa
+         }   
+        }
+
+  
+}
+
+void eliminarArrobaDeString(char* p)
+{
+   int yaElimineArroba=0; 
+   char c='@';
+
+    if(NULL==p)
+        return;
+    char* pDest = p; //Mismo que p (Apunta al principio del string)
+
+    while(*p)
+    {
+        if(*p != c || yaElimineArroba==1)
+            *pDest++=*p;
+        else{
+          yaElimineArroba=1;  
+        }    
+        p++;
+    }
+    *pDest='\0';
 }
  
