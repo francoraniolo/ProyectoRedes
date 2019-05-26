@@ -87,9 +87,14 @@ void validarConsulta(int argc, char *argv[]);
 
 void eliminarArrobaDeString(char* p);
 
+void append(char* s, char c);
+
+void guardarPuerto(char* p);
+
 //Variables Globales necesarias
 unsigned char hostname[100];
 unsigned char dns_server[100];
+char puerto[20]="";
 /*
  * 
  * 
@@ -551,22 +556,47 @@ void validarConsulta(int argc,char *argv[])
 
 void eliminarArrobaDeString(char* p)
 {
-   int yaElimineArroba=0; 
+   int yaElimineArroba=0; //Variable para no borrar más arrobas en caso de que las haya
+                          //(El usuario siempre es impredecible)
    char c='@';
-
+   int voyPorPuerto=0;   //En caso de que ya este por el puerto -> no registrarlo en servidor  
     if(NULL==p)
         return;
     char* pDest = p; //Mismo que p (Apunta al principio del string)
 
-    while(*p)
+    while(*p)           //Saco el arroba
     {
+     if(*p!=':' && voyPorPuerto==0){   //Si no voy por puerto -> anoto servidor a no ser que sea @
         if(*p != c || yaElimineArroba==1)
             *pDest++=*p;
         else{
           yaElimineArroba=1;  
-        }    
-        p++;
+        }
+        
     }
+    else{                              //Estamos en puerto! -> Registremos el numero luego del ':'
+       if(voyPorPuerto==0) 
+        voyPorPuerto=1;
+        else
+        {
+            
+         append(puerto,*p);       //Concatenamos uno de los numeros del puerto
+          
+        }
+        
+    }
+     p++;
+    } 
     *pDest='\0';
+
+    printf("El puerto es %s\n",puerto);
+}
+
+
+void append(char* s, char c)
+{
+        int len = strlen(s);
+        s[len] = c;
+        s[len+1] = '\0';
 }
  
