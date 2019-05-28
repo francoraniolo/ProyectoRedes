@@ -6,6 +6,8 @@
 #include <netinet/in.h>
 #include <unistd.h> //getpid, close()
 
+#include "location_reader.c"
+
 //Estructura Header DNS RFC 1035
 
 struct DNS_HEADER
@@ -74,7 +76,7 @@ typedef struct
 {
     unsigned char *name;   //qname
     struct QUESTION *ques;
-} QUERY;
+} CONSULTA;//QUERY;
 
 //Declaraciones de funciones
 void ngethostbyname(unsigned char *host , int query_type);
@@ -98,6 +100,7 @@ unsigned char hostname[100];
 unsigned char dns_server[100];
 char puerto[20]="";
 int preferencia[20];
+unsigned char *coordenadas;
 /*
  * 
  * 
@@ -128,7 +131,7 @@ int main( int argc , char *argv[]){
     
     //Now get the ip of this hostname , A record
     //ngethostbyname(hostname , 1);
-    ngethostbyname(hostname , 15); //MX record
+    ngethostbyname(hostname , 29); //Loc record
     return 0;
 }
 
@@ -239,7 +242,7 @@ void ngethostbyname(unsigned char *host , int query_type){
         }
         else
         {
-            if(ntohs(answers[i].resource->type) == 15) 
+            if(ntohs(answers[i].resource->type) == 15) //SI ES TIPO MX
             {
             //Leo campo preferencia                 
             preferencia[i]=(int) reader[1];
@@ -249,8 +252,16 @@ void ngethostbyname(unsigned char *host , int query_type){
                 
             }
             else{
+                if (ntohs(answers[i].resource->type) == 29) //SI ES TIPO LOC
+                {
+                    coordenadas=(char *)loc_ntoa(reader,NULL); 
+                    //reader = reader + stop;
+                }
+                else
+                {              
                 answers[i].rdata = ReadName(reader,buf,&stop);
                 reader = reader + stop;
+                }
             }
         }
     }
@@ -315,10 +326,19 @@ void ngethostbyname(unsigned char *host , int query_type){
         else
         {
             
-            if(ntohs(answers[i].resource->type)==15){
+            if(ntohs(answers[i].resource->type)==15){   //SI ES TIPO MX
                 
                 printf("Preferencia: %d  ",preferencia[i]);
                 printf("Exchange: %s",answers[i].rdata);
+                
+            }
+            else{
+                if(ntohs(answers[i].resource->type)==29){   //SI ES TIPO LOC
+
+                    printf("Coordenadas : %s",coordenadas);
+
+                }
+                
                 
             } 
             
