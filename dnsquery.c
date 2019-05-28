@@ -48,10 +48,12 @@ struct QUESTION
 
 struct RDATA
 {
+    //ESTANDAR RDATA
     unsigned short type;
     unsigned short class;
     unsigned int ttl ;
     unsigned short datalen ;
+
 };
 
 #pragma pack(pop)
@@ -61,7 +63,7 @@ struct RDATA
 struct RESRECORD
 {
     unsigned char *name;
-    unsigned short type;
+//  unsigned short type;
     struct RDATA *resource;
     unsigned char *rdata;
 };
@@ -95,6 +97,7 @@ void guardarPuerto(char* p);
 unsigned char hostname[100];
 unsigned char dns_server[100];
 char puerto[20]="";
+int preferencia[20];
 /*
  * 
  * 
@@ -122,15 +125,10 @@ int main( int argc , char *argv[]){
     validarConsulta(argc,argv);
 
     printf("Su servidor dns es %s\n",dns_server);    
-
     
-    //printf("Ingresa el nombre de Host a buscar : ");
-    //scanf("%s" , hostname);
-    
-
     //Now get the ip of this hostname , A record
-    ngethostbyname(hostname , 1);
- 
+    //ngethostbyname(hostname , 1);
+    ngethostbyname(hostname , 15); //MX record
     return 0;
 }
 
@@ -158,7 +156,7 @@ void ngethostbyname(unsigned char *host , int query_type){
  
  s = socket(AF_INET , SOCK_DGRAM , IPPROTO_UDP); //Paquete UDP para consultas dns
 
- dest.sin_family = AF_INET;  //Siempre va AD_INET
+ dest.sin_family = AF_INET;  //Siempre va AF_INET
  dest.sin_port = htons((short)53);  //Paso numero de puerto de manera que se pueda entender en bits
  dest.sin_addr.s_addr =inet_addr(dns_server); //inet_addr("8.8.8.8");//inet_addr(dns_servers[0]); inet_addr("127.0.0.1")  dentro de la funcion va el ip del servidor dns en string
 
@@ -241,8 +239,19 @@ void ngethostbyname(unsigned char *host , int query_type){
         }
         else
         {
-            answers[i].rdata = ReadName(reader,buf,&stop);
-            reader = reader + stop;
+            if(ntohs(answers[i].resource->type) == 15) 
+            {
+            //Leo campo preferencia                 
+            preferencia[i]=(int) reader[1];
+            //Leo campo Exchange
+            answers[i].rdata = ReadName(reader+2,buf,&stop);
+            reader = reader + stop + 2;
+                
+            }
+            else{
+                answers[i].rdata = ReadName(reader,buf,&stop);
+                reader = reader + stop;
+            }
         }
     }
 
@@ -303,7 +312,22 @@ void ngethostbyname(unsigned char *host , int query_type){
             //Canonical name for an alias
             printf("tiene un nombre de alias : %s",answers[i].rdata);
         }
- 
+        else
+        {
+            
+            if(ntohs(answers[i].resource->type)==15){
+                
+                printf("Preferencia: %d  ",preferencia[i]);
+                printf("Exchange: %s",answers[i].rdata);
+                
+            } 
+            
+            
+
+        }
+        
+
+
         printf("\n");
     }
 
@@ -338,7 +362,7 @@ void ngethostbyname(unsigned char *host , int query_type){
    return;
 }
 
-u_char* ReadName(unsigned char* reader,unsigned char* buffer,int* count)
+ unsigned char* ReadName(unsigned char* reader,unsigned char* buffer,int* count)
 {
 
     unsigned char *name;
