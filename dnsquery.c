@@ -160,17 +160,17 @@ int main( int argc , char *argv[]){
      
     unsigned char prueba[100];
     ngethostbyname(prueba,2);   //Pedimos nameservers a Root
-    
+    //exit(EXIT_FAILURE);
     if(cantidadNS<1){exit(EXIT_FAILURE);}
     int r = random_number(0,cantidadNS-1);
-    printf("El root_nameserver aleatorio es %s \n",nameservers[r]);
+    printf("El root_nameserver aleatorio seleccionado es %s \n",nameservers[r]);
     ngethostbyname(nameservers[r],1); //Pedimos ipv4 a nameserver de root aleatorio 
     printf("El proximo server es : %s\n",proximo_server);
     noEsDeInicio=1;
     seguirTrace=1;
     int contador=0;
     while(seguirTrace){
-   // if(contador==5)exit(EXIT_FAILURE); //TESTING
+    //if(contador==5)exit(EXIT_FAILURE); //TESTING
     if(necesitoIpNameserver==0){
     ngethostbyname(hostname,tipoQuery);
     hostname[strlen(hostname)-1]='\0'; //Eliminamos el punto agregado por el metodo. 
@@ -188,7 +188,7 @@ int main( int argc , char *argv[]){
                 r = random_number(0,cantidadNS-1);
                 printf("(necesitoipnameserver activado) El root_nameserver aleatorio es %s \n",nameservers[r]);
                 ngethostbyname(nameservers[r],1); //Pedimos ipv4 a nameserver de root aleatorio 
-
+                necesitoIpNameserver=0;
 
 
 
@@ -205,6 +205,7 @@ int main( int argc , char *argv[]){
 
         }
         contador++; //TESTING
+        //printf("CONTADOR AHORA ES %d \n",contador);
     }
     }
     else{
@@ -573,7 +574,7 @@ void ngethostbyname(unsigned char *host , int query_type){
     int adicionalesNoPrinteables=0;
     for(i=0; i < ntohs(dns->arcount) ; i++)
     {
-       
+        
         if(ntohs(addit[i].resource->type)==1)
         {
             printf("Nombre : %s ",addit[i].name);
@@ -592,6 +593,8 @@ void ngethostbyname(unsigned char *host , int query_type){
         }
         
     }
+    printf("Registros Adicionales ignorados: %d \n",adicionalesNoPrinteables);
+
      if(iteracionIngresada==1){
             if((ntohs(dns->arcount)-adicionalesNoPrinteables)>0){ //Esto quiere decir que hay IPv4 que podemos usar
                 
