@@ -454,8 +454,14 @@ void ngethostbyname(unsigned char *host , int query_type){
                 reader+=ntohs(addit[i].resource->datalen);
             }
             else{
-            addit[i].rdata=ReadName(reader,buf,&stop);
-            reader+=stop;
+            
+                addit[i].rdata = (unsigned char*)malloc(ntohs(addit[i].resource->datalen));
+                for(j=0;j<ntohs(addit[i].resource->datalen);j++)
+                addit[i].rdata[j]=reader[j];
+ 
+                addit[i].rdata[ntohs(addit[i].resource->datalen)]='\0';
+                reader+=ntohs(addit[i].resource->datalen);
+
             }
         }
     }
@@ -529,6 +535,7 @@ void ngethostbyname(unsigned char *host , int query_type){
                              cantidadNS=ntohs(dns->ancount);        //Y LA CANTIDAD QUE HAY DE LOS MISMOS
                         }             
                     }
+                    
                 }
                 
                 
@@ -589,6 +596,7 @@ void ngethostbyname(unsigned char *host , int query_type){
             printf("\n"); 
         }
         else{
+
             adicionalesNoPrinteables++;
         }
         
