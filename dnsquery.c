@@ -186,7 +186,7 @@ int main( int argc , char *argv[]){
                     exit(EXIT_FAILURE);
                     }
                 r = random_number(0,cantidadNS-1);
-                printf("(necesitoipnameserver activado) El root_nameserver aleatorio es %s \n",nameservers[r]);
+                printf("El root_nameserver aleatorio es %s \n",nameservers[r]);
                 ngethostbyname(nameservers[r],1); //Pedimos ipv4 a nameserver de root aleatorio 
                 necesitoIpNameserver=0;
 
