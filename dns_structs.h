@@ -64,4 +64,4 @@ typedef struct
 {
     unsigned char *name;   //qname
     struct QUESTION *ques;
-} CONSULTA;//QUERY;
+} CONSULTA;

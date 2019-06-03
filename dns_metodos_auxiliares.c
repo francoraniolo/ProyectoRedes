@@ -137,3 +137,20 @@ unsigned char* leerNombre(unsigned char* reader,unsigned char* buffer,int* count
     name[i-1]='\0'; //remuevo el ultimo punto
     return name;
 }
+
+void mensajeBienvenida(){
+
+printf("  =================================================================================\n");
+printf("  Mini-Cliente de consulta de servidores DNS - <PROYECTO DE REDES DE COMPUTADORAS>  \n");
+printf("  Universidad Nacional del Sur    \n");
+printf("  =================================================================================\n");
+
+printf("  Alumnos: Raniolo Franco Martin - Amigo Leandro\n");
+
+printf("  =================================================================================\n");
+
+
+printf("<D N S   Q U E R Y>\n");
+printf("\n");
+
+}

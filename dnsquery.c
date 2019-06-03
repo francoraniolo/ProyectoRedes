@@ -12,6 +12,13 @@
 
 #include "dns_declaraciones.h" //declaraciones de funciones posteriormente implementadas
 
+/*  Autores: Raniolo Franco Martin - Amigo Leandro
+*   Materia: Redes de Computadoras
+*   Proyecto Mini-cliente de consultas DNS
+*   Fecha de entrega: 3/6/2019
+*   Universidad Nacional del Sur
+*/
+
 //Variables Globales necesarias
 unsigned char hostname[100];
 unsigned char dns_server[100];
@@ -50,6 +57,10 @@ int main( int argc , char *argv[]){
     
     //Realizamos la validacion de la consulta segun los parametros indicados en el enunciado
     validarConsulta(argc,argv);
+
+
+    mensajeBienvenida();
+
 
     printf("Su servidor dns es %s\n",dns_server);    
     
@@ -460,7 +471,7 @@ void realizarConsulta(unsigned char *host , int query_type){
         }
         
     }
-    printf("Registros Adicionales ignorados: %d \n",adicionalesNoPrinteables);
+    printf("Registros Adicionales ignorados (no imprimibles): %d \n",adicionalesNoPrinteables);
 
      if(iteracionIngresada==1){
             if((ntohs(dns->arcount)-adicionalesNoPrinteables)>0){ //Esto quiere decir que hay IPv4 que podemos usar
@@ -475,6 +486,10 @@ void realizarConsulta(unsigned char *host , int query_type){
                 }
             }
         }
+
+        printf("\n");
+
+        printf("====================================================================================\n");
 
         //liberamos memoria reservada
         memset(&answers[0], 0, sizeof(struct RESRECORD));

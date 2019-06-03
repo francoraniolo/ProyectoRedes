@@ -21,4 +21,5 @@ int random_number(int min_num, int max_num);
 
 void mostrarAyuda();
 
+void mensajeBienvenida();
 
