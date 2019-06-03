@@ -5,98 +5,12 @@
 #include <arpa/inet.h> //inet_addr, etc.
 #include <netinet/in.h>
 #include <unistd.h> //getpid, close()
-#include "location_reader.c"
+#include "location_reader.c" //funcion necesaria para leer consultas de tipo LOC
+#include "dns_metodos_auxiliares.c" //funciones auxiliares necesarias
 
-//Estructura Header DNS RFC 1035
+#include "dns_structs.h" //structs necesarios para estructura de consultas
 
-struct DNS_HEADER
-{
-    unsigned short id; // id | 16 bits 
-    
-    unsigned char rd :1; // recursion desired | 1 bit
-    unsigned char tc :1; // truncated message | 1 bit  
-    unsigned char aa :1; // authoritive answer | 1 bit
-    unsigned char opcode :4; // proposito del mensaje | 4 bits
-    unsigned char qr :1; // query/response flag | 1 bit
-    
-    
-    
-    unsigned char rcode :4; // codigo respuesta | 4 bits
-    unsigned char z :3; // reservado para futuros usos, debe ser cero | 1 bit
-    unsigned char ra :1; // recursion available | 1 bit
-    
-
- 
-    unsigned short qdcount;  // numero de entradas en seccion de preguntas | 16 bits
-    unsigned short ancount;  // numero de rr en seccion de respuestas | 16 bits
-    unsigned short nscount;  // numero de nameservers en la seccion de registros de autoridad | 16 bits
-    unsigned short arcount;  // numero de rr en seccion de registros adicionales | 16 bits
-    
-};
-
-//Estructura QUESTION RFC 1035
-struct QUESTION
-{
-    unsigned short qtype; //tipo de query
-    unsigned short qclass; //clase de query, va IN para internet
-};
-
-#pragma pack(push, 1)
-
-//Estructura Resource Data
-
-struct RDATA
-{
-    //ESTANDAR RDATA
-    unsigned short type;
-    unsigned short class;
-    unsigned int ttl ;
-    unsigned short datalen ;
-
-};
-
-#pragma pack(pop)
-
-//Estructura Resource Record
-
-struct RESRECORD
-{
-    unsigned char *name;
-//  unsigned short type;
-    struct RDATA *resource;
-    unsigned char *rdata;
-};
-
-//Estructura de Query
-
-typedef struct
-{
-    unsigned char *name;   //qname
-    struct QUESTION *ques;
-} CONSULTA;//QUERY;
-
-//Declaraciones de funciones
-void ngethostbyname(unsigned char *host , int query_type);
-
-u_char* ReadName(unsigned char* reader,unsigned char* buffer,int* count);
-
-void get_dns_servers();
-
-void ChangetoDnsNameFormat(unsigned char* dns,unsigned char* host);
-
-void validarConsulta(int argc, char *argv[]);
-
-void eliminarArrobaDeString(char* p);
-
-void append(char* s, char c);
-
-void guardarPuerto(char* p);
-
-void consultaTrace(unsigned char *host, int query_type);
-
-int random_number(int min_num, int max_num);
-
-void mostrarAyuda();
+#include "dns_declaraciones.h" //declaraciones de funciones posteriormente implementadas
 
 //Variables Globales necesarias
 unsigned char hostname[100];
@@ -104,7 +18,7 @@ unsigned char dns_server[100];
 unsigned char proximo_server[100];
 unsigned char ipDisponibleEnAdicional[50];
 char puerto[20]="";
-unsigned short int tipoQuery = 1;
+unsigned short int tipoQuery = 1; //El tipo de query por defecto es tipo A
 unsigned short int necesitoIpNameserver=0;
 
 
@@ -125,91 +39,31 @@ int cantidadNS=0;
 int noEsDeInicio=0;
 
 
-/*
- * 
- * 
- * 
- */
-
-
 int main( int argc , char *argv[]){
-    
-
-    //Get the DNS servers from the resolv.conf file
      
-    //Get the hostname from the terminal
-    
     //Revisamos cantidad de argumentos
 
     if (argc>7 || argc<2){
-        printf("Error: Cantidad inválida de argumentos \n");
+        printf("Error: Cantidad inválida de argumentos (%d) \n",argc);
         exit(EXIT_FAILURE); 
     }
     
+    //Realizamos la validacion de la consulta segun los parametros indicados en el enunciado
     validarConsulta(argc,argv);
 
     printf("Su servidor dns es %s\n",dns_server);    
     
-    //Now get the ip of this hostname , A record
-    //ngethostbyname(hostname , 1);
-    //ngethostbyname(hostname , 29); //Loc record
+    /*Revisamos si el usuario desea hacer trace o no
+    * Si desea tracing, realizamos una consulta NS inicial hacia el servidor raiz
+    * mediante el servidor ingresado o el ubicado en /etc/resolv.conf 
+    * Sino, realizamos consulta con el bit de recursion encendido (rd) del dominio solicitado
+    */
     
-
-    // iteracionIngresada=1; //harcodeo de trace
     if(iteracionIngresada==1){
-     
-    unsigned char prueba[100];
-    ngethostbyname(prueba,2);   //Pedimos nameservers a Root
-    //exit(EXIT_FAILURE);
-    if(cantidadNS<1){exit(EXIT_FAILURE);}
-    int r = random_number(0,cantidadNS-1);
-    printf("El root_nameserver aleatorio seleccionado es %s \n",nameservers[r]);
-    ngethostbyname(nameservers[r],1); //Pedimos ipv4 a nameserver de root aleatorio 
-    printf("El proximo server es : %s\n",proximo_server);
-    noEsDeInicio=1;
-    seguirTrace=1;
-    int contador=0;
-    while(seguirTrace){
-    //if(contador==5)exit(EXIT_FAILURE); //TESTING
-    if(necesitoIpNameserver==0){
-    ngethostbyname(hostname,tipoQuery);
-    hostname[strlen(hostname)-1]='\0'; //Eliminamos el punto agregado por el metodo. 
-    if(seguirTrace==1){
-    printf("El proximo server es : %s\n",proximo_server);
-                      }
-    }
-    else{                   //Necesito ip de un nameserver
-
-                if(cantidadNS<1)
-                    {
-                    printf("Error: cantidad nameservers nula \n");
-                    exit(EXIT_FAILURE);
-                    }
-                r = random_number(0,cantidadNS-1);
-                printf("El root_nameserver aleatorio es %s \n",nameservers[r]);
-                ngethostbyname(nameservers[r],1); //Pedimos ipv4 a nameserver de root aleatorio 
-                necesitoIpNameserver=0;
-
-
-
-            /*    ahora ya tengo ip, lo copio en proximo_server
-                seteo necesitoIpNameserver=0;
-                tengo que cuidarme que cuando haga esto, no setee el seguirTrace en cero. 
-           */
-           
-           
-           // r = random_number(0,cantidadNS-1);
-           // printf("El root_nameserver aleatorio es %s \n",nameservers[r]);
-           // ngethostbyname(nameservers[0],1); //Pedimos ipv4 a nameserver de root aleatorio 
-           // printf("El proximo server es : %s\n",proximo_server);
-
-        }
-        contador++; //TESTING
-        //printf("CONTADOR AHORA ES %d \n",contador);
-    }
+    consultaTrace();
     }
     else{
-     ngethostbyname(hostname,tipoQuery);   
+     realizarConsulta(hostname,tipoQuery);   
     }
 
     return 0;
@@ -218,9 +72,19 @@ int main( int argc , char *argv[]){
 /*
  * 
  * Realiza una consulta DNS enviando un paquete
+ * Lamentablemente no tuvimos tiempo suficiente para separar este metodo en varios (seria ideal),
+ * pero aqui resumimos su funcionalidad:
+ * - Primero se confecciona y se realiza la consulta UDP a traves de sockets
+ * - Luego se leen todos los registros recibidos (de respuestas, autoritativos y adicionales) junto con el nombre
+ * - Finalmente se imprime lo leido, en caso de ser posible. 
+ * 
+ * Parametros: 
+ *  host: el dominio ingresado por el usuario 
+ *  query_type: el tipo de consulta que desea realizar el usuario (A,MX,LOC,NS). Por defecto es A.
+ * 
  * */
 
-void ngethostbyname(unsigned char *host , int query_type){
+void realizarConsulta(unsigned char *host , int query_type){
 
  unsigned char buf[65536],*qname,*reader;
  
@@ -228,7 +92,7 @@ void ngethostbyname(unsigned char *host , int query_type){
  
  struct sockaddr_in a;
 
- struct RESRECORD answers[20],auth[20],addit[20]; //respuestas del servidor DNS
+ struct RESRECORD answers[20],auth[20],addit[20]; //Respuestas del servidor DNS
 
  struct sockaddr_in dest;
 
@@ -250,19 +114,24 @@ void ngethostbyname(unsigned char *host , int query_type){
  }
  printf("El puerto es %s\n",puerto);
 
- 
-     
-        
-     //printf("dns_server es %s \n",dns_server);
-     
-     //printf("proximo_server es %s \n",proximo_server);
-
+/*
+* En caso de haber solicitado trace, se consideran una serie de casos para saber que servidor analizar.
+*   -Si necesitamos realizar una consulta NS al root, se utilizara el servidor ingresado por el usuario o 
+*    el que se encuentra en /etc/resolv.conf
+*   -Si se necesita conocer el ip de un dominio, utilizaremos el mismo servidor indicado en el punto anterior.
+*   -Sin embargo, para realizar el trace, necesitamos la ip del proximo servidor del arbol,
+*     dicho servidor sera guardado en la variable proximo_server en caso de haberlo pedido a un dominio, o ya
+*     haberlo recibido en un registro adicional en la consulta iterativa anterior. 
+*       
+*
+*
+*/
     if(iteracionIngresada==0){
     dest.sin_addr.s_addr =inet_addr(dns_server);
     }
     else{
         if(seguirTrace==0){
-            dest.sin_addr.s_addr =inet_addr(dns_server); //
+            dest.sin_addr.s_addr =inet_addr(dns_server); 
         }else{
             if(necesitoIpNameserver==1){
                 dest.sin_addr.s_addr =inet_addr(dns_server);
@@ -284,7 +153,16 @@ void ngethostbyname(unsigned char *host , int query_type){
     dns->opcode = 0; //consulta estandar
     dns->aa = 0; //No autoritativa
     dns->tc = 0; //Mensaje no truncado
-    
+    /*
+    *
+    * Segun los casos definidos previamente a la hora de setear el servidor, en caso de necesitar el servidor ingresado
+    * o el servidor ubicado en /etc/resolv.conf, el bit de recursion (rd) estara prendido. Mientras que en
+    * caso de necesitar el servidor ubicado en proximo_server, quiere decir que realizaremos una consulta iterativa con el
+    * bit de recursion apagado. (No queremos resolver el dominio recursivamente)
+    * 
+    */
+
+
     if(iteracionIngresada==0)
         {
             dns->rd = 1; //Recursion deseada
@@ -318,14 +196,14 @@ void ngethostbyname(unsigned char *host , int query_type){
     dns->nscount = 0;
     dns->arcount = 0;
 
-    //apunta a la porcion de consulta
+    //apuntamos a la porcion de consulta
     qname =(unsigned char*)&buf[sizeof(struct DNS_HEADER)];
     
-    ChangetoDnsNameFormat(qname , host);
-    qinfo =(struct QUESTION*)&buf[sizeof(struct DNS_HEADER) + (strlen((const char*)qname) + 1)]; //fill it
+    CambioAFormatoDns(qname , host);
+    qinfo =(struct QUESTION*)&buf[sizeof(struct DNS_HEADER) + (strlen((const char*)qname) + 1)]; 
  
-    qinfo->qtype = htons( query_type ); //type of the query , A , MX , CNAME , NS etc
-    qinfo->qclass = htons(1); //its internet (lol)
+    qinfo->qtype = htons( query_type ); //Tipo de consulta , A , MX , CNAME , NS etc
+    qinfo->qclass = htons(1); //Es internet
  
     printf("\nEnviando Paquete...");
     if( sendto(s,(char*)buf,sizeof(struct DNS_HEADER) + (strlen((const char*)qname)+1) + sizeof(struct QUESTION),0,(struct sockaddr*)&dest,sizeof(dest)) < 0)
@@ -334,7 +212,7 @@ void ngethostbyname(unsigned char *host , int query_type){
     }
     printf("Listo.");
 
-    //Receive the answer
+    //Recibimos la respuesta
     i = sizeof dest;
     printf("\nRecibiendo respuesta...");
     if(recvfrom (s,(char*)buf , 65536 , 0 , (struct sockaddr*)&dest , (socklen_t*)&i ) < 0)
@@ -345,7 +223,8 @@ void ngethostbyname(unsigned char *host , int query_type){
  
     dns = (struct DNS_HEADER*) buf;
 
-    //move ahead of the dns header and the query field
+    
+    //Movemos lector por delante del encabezado del dns y el campo de consulta
     reader = &buf[sizeof(struct DNS_HEADER) + (strlen((const char*)qname)+1) + sizeof(struct QUESTION)];
  
     printf("\nLa respuesta contiene : ");
@@ -354,19 +233,19 @@ void ngethostbyname(unsigned char *host , int query_type){
     printf("\n %d Servidores Autoritativos.",ntohs(dns->nscount));
     printf("\n %d Registros adicionales.\n\n",ntohs(dns->arcount));
 
-    //Start reading answers
+    //Empezamos a leer respuestas
     stop=0;
  
     for(i=0;i<ntohs(dns->ancount);i++)
     {
-        answers[i].name=ReadName(reader,buf,&stop);
+        answers[i].name=leerNombre(reader,buf,&stop);
         reader = reader + stop;
  
         answers[i].resource = (struct RDATA*)(reader);
         reader = reader + sizeof(struct RDATA);
 
 
-        if(ntohs(answers[i].resource->type) == 1) //if its an ipv4 address
+        if(ntohs(answers[i].resource->type) == 1) //Si es una direccion Ipv4
         {
             answers[i].rdata = (unsigned char*)malloc(ntohs(answers[i].resource->datalen));
  
@@ -386,7 +265,7 @@ void ngethostbyname(unsigned char *host , int query_type){
             //Leo campo preferencia                 
             preferencia[i]=(int) reader[1];
             //Leo campo Exchange
-            answers[i].rdata = ReadName(reader+2,buf,&stop);
+            answers[i].rdata = leerNombre(reader+2,buf,&stop);
             reader = reader + stop + 2;
                 
             }
@@ -400,11 +279,11 @@ void ngethostbyname(unsigned char *host , int query_type){
                 {
                     if(ntohs(answers[i].resource->type) == 2) //SI ES TIPO NS
                     {   
-                        answers[i].rdata = ReadName(reader,buf,&stop);
+                        answers[i].rdata = leerNombre(reader,buf,&stop);
                         reader = reader + stop;
                     }
                     else{              
-                         answers[i].rdata = ReadName(reader,buf,&stop);
+                         answers[i].rdata = leerNombre(reader,buf,&stop);
                          reader = reader + stop;
                     }
                 }
@@ -412,58 +291,38 @@ void ngethostbyname(unsigned char *host , int query_type){
         }
     }
 
-    //read authorities
+    //Leemos registros autoritativos
+    
     for(i=0;i<ntohs(dns->nscount);i++)
     {
-        auth[i].name=ReadName(reader,buf,&stop);
+        auth[i].name=leerNombre(reader,buf,&stop);
         reader+=stop;
  
         auth[i].resource=(struct RDATA*)(reader);
         reader+=sizeof(struct RDATA);
  
-        auth[i].rdata=ReadName(reader,buf,&stop);
+        auth[i].rdata=leerNombre(reader,buf,&stop);
         reader+=stop;
     }
- 
-    //read additional
+    
+    //Leemos registros adicionales
     for(i=0;i<ntohs(dns->arcount);i++)
     {
-        addit[i].name=ReadName(reader,buf,&stop);
+        //Leemos nombre
+        addit[i].name=leerNombre(reader,buf,&stop);
         reader+=stop;
  
         addit[i].resource=(struct RDATA*)(reader);
         reader+=sizeof(struct RDATA);
- 
-        if(ntohs(addit[i].resource->type)==1)
-        {
+
+        //Leemos registro
             addit[i].rdata = (unsigned char*)malloc(ntohs(addit[i].resource->datalen));
             for(j=0;j<ntohs(addit[i].resource->datalen);j++)
             addit[i].rdata[j]=reader[j];
  
             addit[i].rdata[ntohs(addit[i].resource->datalen)]='\0';
             reader+=ntohs(addit[i].resource->datalen);
-        }
-        else
-        {
-            if(ntohs(addit[i].resource->type)==2){ //TIPO NS
-                addit[i].rdata = (unsigned char*)malloc(ntohs(addit[i].resource->datalen));
-                for(j=0;j<ntohs(addit[i].resource->datalen);j++)
-                addit[i].rdata[j]=reader[j];
- 
-                addit[i].rdata[ntohs(addit[i].resource->datalen)]='\0';
-                reader+=ntohs(addit[i].resource->datalen);
-            }
-            else{
-            
-                addit[i].rdata = (unsigned char*)malloc(ntohs(addit[i].resource->datalen));
-                for(j=0;j<ntohs(addit[i].resource->datalen);j++)
-                addit[i].rdata[j]=reader[j];
- 
-                addit[i].rdata[ntohs(addit[i].resource->datalen)]='\0';
-                reader+=ntohs(addit[i].resource->datalen);
-
-            }
-        }
+       
     }
 
     //print answers
@@ -555,7 +414,7 @@ void ngethostbyname(unsigned char *host , int query_type){
     for( i=0 ; i < ntohs(dns->nscount) ; i++)
     {
          
-        printf("Name : %s ",auth[i].name);
+        printf("Nombre : %s ",auth[i].name);
         if(ntohs(auth[i].resource->type)==2)
         {
             printf("Nameserver : %s",auth[i].rdata);
@@ -608,8 +467,7 @@ void ngethostbyname(unsigned char *host , int query_type){
                 
                 strcpy(proximo_server,ipDisponibleEnAdicional);
                 necesitoIpNameserver=0;
-                //printf("EL PROXIMO SERVER ES %s \n", proximo_server);
-                //exit(EXIT_FAILURE);
+                
             }
             else{
                 if(noEsDeInicio==1){
@@ -618,7 +476,7 @@ void ngethostbyname(unsigned char *host , int query_type){
             }
         }
 
-
+        //liberamos memoria reservada
         memset(&answers[0], 0, sizeof(struct RESRECORD));
         memset(&auth[0], 0, sizeof(struct RESRECORD));
         memset(&addit[0], 0, sizeof(struct RESRECORD));
@@ -628,315 +486,273 @@ void ngethostbyname(unsigned char *host , int query_type){
    return;
 } 
 
-
- unsigned char* ReadName(unsigned char* reader,unsigned char* buffer,int* count)
-{
-
-    unsigned char *name;
-    unsigned int p=0,jumped=0,offset;
-    int i , j;
- 
-    *count = 1;
-    name = (unsigned char*)malloc(256);
- 
-    name[0]='\0';
- 
-    //read the names in 3www6google3com format
-    while(*reader!=0)
-    {
-        if(*reader>=192)
-        {
-            offset = (*reader)*256 + *(reader+1) - 49152; //49152 = 11000000 00000000 ;)
-            reader = buffer + offset - 1;
-            jumped = 1; //we have jumped to another location so counting wont go up!
-        }
-        else
-        {
-            name[p++]=*reader;
-        }
- 
-        reader = reader+1;
- 
-        if(jumped==0)
-        {
-            *count = *count + 1; //if we havent jumped to another location then we can count up
-        }
-    }
- 
-    name[p]='\0'; //string complete
-    if(jumped==1)
-    {
-        *count = *count + 1; //number of steps we actually moved forward in the packet
-    }
- 
-    //now convert 3www6google3com0 to www.google.com
-    for(i=0;i<(int)strlen((const char*)name);i++) 
-    {
-        p=name[i];
-        for(j=0;j<(int)p;j++) 
-        {
-            name[i]=name[i+1];
-            i=i+1;
-        }
-        name[i]='.';
-    }
-    name[i-1]='\0'; //remove the last dot
-    return name;
-}
-
 /*
- * Get the DNS servers from /etc/resolv.conf file on Linux
+ * 
+ * Obtiene los servidores DNS del archivo /etc/resolv.conf en Linux
  * */
-void get_dns_servers()
+void obtener_dns_servers()
 {
     FILE *fp;
-    char line[200] , *p;
+    char line[200], *p;
     memset(&dns_server[0], 0, sizeof(dns_server)); //elimina almacenado anteriormente
-    if((fp = fopen("/etc/resolv.conf" , "r")) == NULL)
+    if ((fp = fopen("/etc/resolv.conf", "r")) == NULL)
     {
         strncpy(dns_server, "8.8.8.8", strlen("8.8.8.8"));
     }
 
-    while(fgets(line , 200 , fp))
+    while (fgets(line, 200, fp))
     {
-        if(line[0] == '#')
+        if (line[0] == '#')
         {
             continue;
         }
-        if(strncmp(line , "nameserver" , 10) == 0)
+        if (strncmp(line, "nameserver", 10) == 0)
         {
-            char* aux;
-            aux = strtok(line , " ");
-            aux = strtok(NULL , " ");
-            strncpy(dns_server, aux, strlen(aux)-1);
-            dns_server[strlen ((const char*) dns_server)+1 ] = '\0';
+            char *aux;
+            aux = strtok(line, " ");
+            aux = strtok(NULL, " ");
+            strncpy(dns_server, aux, strlen(aux) - 1);
+            dns_server[strlen((const char *)dns_server) + 1] = '\0';
             break;
-            //p now is the dns ip :)
-            //????
+            //Finalmente en dns_server tenemos el primer nameserver de resolv.conf
         }
     }
 }
 
 
 /*
- * This will convert www.google.com to 3www6google3com 
- * got it :)
- * */
-void ChangetoDnsNameFormat(unsigned char* dns,unsigned char* host) 
+*   Metodo con el objetivo de validar la consulta ingresada por el usuario
+*   En caso de tener parametros excluyentes o repetidos, el programa le informara al usuario el error cometido.
+*   Tambien registramos el tipo de consulta que desea hacer el usuario y si desea o no realizar trace. 
+*   
+*   En terminos de programador, el metodo simula un switch-case analizando los parametros ingresados por el usuario,
+*   levantando flags en caso de haber insertado un parametro permitido.
+*   
+*   argc: Cantidad de parametros ingresados por el usuario
+*   argv: Arreglo de cadenas de caracteres con los parametros ingresados
+*/
+void validarConsulta(int argc, char *argv[])
 {
-    int lock = 0 , i;
-    strcat((char*)host,".");
-       
-    for(i = 0 ; i < strlen((char*)host) ; i++) 
-    {
-        if(host[i]=='.') 
-        {
-            *dns++ = i-lock;
-            for(;lock<i;lock++) 
-            {
-                *dns++=host[lock];
-            }
-            lock++; //or lock=i+1;
-        }
-    }
-    *dns++='\0';
-}
-
-void validarConsulta(int argc,char *argv[])
-{
-    int i=0;
-    int consulta,amxloc,rt,h,servidor;
-    servidor=0;
-    consulta=0;
-    amxloc=0;
-    rt=0;
-    h=0;
-    char srv[20]=""; 
+    int i = 0;
+    int consulta, amxloc, rt, h, servidor;
+    servidor = 0;
+    consulta = 0;
+    amxloc = 0;
+    rt = 0;
+    h = 0;
+    char srv[20] = "";
     char arroba;
 
- for(i=1;i<argc;i++){
-    
-    if(strcmp(argv[i],"-h")==0)
+    for (i = 1; i < argc; i++)
+    {
+
+        if (strcmp(argv[i], "-h") == 0)
         {
-            if(h==1) {
+            if (h == 1)
+            {
                 printf("Parámetro -h repetido \n");
-                exit(EXIT_FAILURE);   
-                  }
-            h=1;
+                exit(EXIT_FAILURE);
+            }
+            h = 1;
         }
-    else{  
-    if(strcmp(argv[i],"-a")==0)
-        {
-            if(amxloc==1) {
-                printf("Parámetros excluyentes o repetidos \n");
-                exit(EXIT_FAILURE);   
-                       }
-            amxloc=1;
-            tipoQuery=T_A;     
-        }
-    else{    
-    if(strcmp(argv[i],"-mx")==0)
-    {
-            if(amxloc==1) {
-                printf("Parámetros excluyentes o repetidos \n");
-                exit(EXIT_FAILURE);   
-                  }
-            amxloc=1;
-            tipoQuery=T_MX;        
-    }       
-    else{ 
-    if(strcmp(argv[i],"-loc")==0)
-    {
-            if(amxloc==1) {
-                printf("Parámetros excluyentes o repetidos \n");
-                exit(EXIT_FAILURE);   
-                  }
-            amxloc=1;     
-            tipoQuery=T_LOC;    
-    }
-    else{
-    if(strcmp(argv[i],"-r")==0)
-    {
-            if(rt==1) {
-                printf("Parámetros excluyentes o repetidos \n");
-                exit(EXIT_FAILURE);   
-                  }
-            rt=1;     
-    }        
-    else{
-    if(strcmp(argv[i],"-t")==0)
-    {        
-            if(rt==1) {
-                printf("Parámetros excluyentes o repetidos \n");
-                exit(EXIT_FAILURE);   
-                  }
-            rt=1;     
-            iteracionIngresada=1;
-    }
-    else{
-        if('@'==argv[i][0])   //Si esto pasa es el servidor!
-          { 
-           if(servidor==1)
-                {
-                    printf("Ingrese un único servidor por favor.\n");
-                    exit(EXIT_FAILURE);
-                }
-            servidor=1;
-            strcpy(dns_server,argv[i]);
-            eliminarArrobaDeString(dns_server);
-            
-          }
-        else{       //Si llegué acá es una consulta!
-            if(consulta==1)
-             {
-                 printf("Ingrese una única consulta por favor.\n");
-                 exit(EXIT_FAILURE);
-             }
-            strcpy(hostname,argv[i]);
-            consulta=1;
-        }  
-        }
-        }}}}}          
-  }//termina el for
-   if(consulta==0 && h==0){   //No hay consulta y no pidió ayuda
-            printf("Comando inválido. No hay consulta.\n");
-            exit(EXIT_FAILURE);
-        }
-    else
-        {
-         if(h==1){
-             mostrarAyuda();//Imprimir ayuda
-             exit(EXIT_FAILURE); // Y termino el programa
-         }
-         if(servidor==0){                  //No ingresaron servidor dns, hay que buscarlo en resolv.conf
-                get_dns_servers();                
-         }   
-        }
-
-  
-
-}
-
-void eliminarArrobaDeString(char* p)
-{
-   int yaElimineArroba=0; //Variable para no borrar más arrobas en caso de que las haya
-                          //(El usuario siempre es impredecible)
-   char c='@';
-   int voyPorPuerto=0;   //En caso de que ya este por el puerto -> no registrarlo en servidor  
-    if(NULL==p)
-        return;
-    char* pDest = p; //Mismo que p (Apunta al principio del string)
-
-    while(*p)           //Saco el arroba
-    {
-     if(*p!=':' && voyPorPuerto==0){   //Si no voy por puerto -> anoto servidor a no ser que sea @
-        if(*p != c || yaElimineArroba==1)
-            *pDest++=*p;
-        else{
-          yaElimineArroba=1;  
-        }
-        
-    }
-    else{                                  //Estamos en puerto! -> Registremos el numero luego del ':'
-       puertoIngresado=1;                               
-       if(voyPorPuerto==0) 
-        voyPorPuerto=1;
         else
         {
-            
-         append(puerto,*p);       //Concatenamos uno de los numeros del puerto
-          
+            if (strcmp(argv[i], "-a") == 0)
+            {
+                if (amxloc == 1)
+                {
+                    printf("Parámetros excluyentes o repetidos \n");
+                    exit(EXIT_FAILURE);
+                }
+                amxloc = 1;
+                tipoQuery = 1;
+            }
+            else
+            {
+                if (strcmp(argv[i], "-mx") == 0)
+                {
+                    if (amxloc == 1)
+                    {
+                        printf("Parámetros excluyentes o repetidos \n");
+                        exit(EXIT_FAILURE);
+                    }
+                    amxloc = 1;
+                    tipoQuery = 15;
+                }
+                else
+                {
+                    if (strcmp(argv[i], "-loc") == 0)
+                    {
+                        if (amxloc == 1)
+                        {
+                            printf("Parámetros excluyentes o repetidos \n");
+                            exit(EXIT_FAILURE);
+                        }
+                        amxloc = 1;
+                        tipoQuery = 29;
+                    }
+                    else
+                    {
+                        if (strcmp(argv[i], "-r") == 0)
+                        {
+                            if (rt == 1)
+                            {
+                                printf("Parámetros excluyentes o repetidos \n");
+                                exit(EXIT_FAILURE);
+                            }
+                            rt = 1;
+                        }
+                        else
+                        {
+                            if (strcmp(argv[i], "-t") == 0)
+                            {
+                                if (rt == 1)
+                                {
+                                    printf("Parámetros excluyentes o repetidos \n");
+                                    exit(EXIT_FAILURE);
+                                }
+                                rt = 1;
+                                iteracionIngresada = 1;
+                            }
+                            else
+                            {
+                                if ('@' == argv[i][0]) //Si esto pasa es el servidor!
+                                {
+                                    if (servidor == 1)
+                                    {
+                                        printf("Ingrese un único servidor por favor.\n");
+                                        exit(EXIT_FAILURE);
+                                    }
+                                    servidor = 1;
+                                    strcpy(dns_server, argv[i]);
+                                    eliminarArrobaDeString(dns_server);
+                                }
+                                else
+                                { //Si llegué acá es una consulta!
+                                    if (consulta == 1)
+                                    {
+                                        printf("Ingrese una única consulta por favor.\n");
+                                        exit(EXIT_FAILURE);
+                                    }
+                                    strcpy(hostname, argv[i]);
+                                    consulta = 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-        
+    } //termina el for
+    if (consulta == 0 && h == 0)
+    { //No hay consulta y no pidió ayuda
+        printf("Comando inválido. No hay consulta.\n");
+        exit(EXIT_FAILURE);
     }
-     p++;
-    } 
-    *pDest='\0';
-
-    
-}
-
-
-void append(char* s, char c)
-{
-        int len = strlen(s);
-        s[len] = c;
-        s[len+1] = '\0';
-}
-
-void consultaTrace(unsigned char *host, int query_type){
-    
-    
-}
-
-int random_number(int min_num, int max_num)
-{
-    int result = 0, low_num = 0, hi_num = 0;
-
-    if (min_num < max_num)
+    else
     {
-        low_num = min_num;
-        hi_num = max_num + 1; // include max_num in output
-    } else {
-        low_num = max_num + 1; // include max_num in output
-        hi_num = min_num;
+        if (h == 1)
+        {
+            mostrarAyuda();     //Imprimir ayuda
+            exit(EXIT_FAILURE); // Y termino el programa
+        }
+        if (servidor == 0)
+        { //No ingresaron servidor dns, hay que buscarlo en resolv.conf
+            obtener_dns_servers();
+        }
     }
-
-    srand(time(NULL));
-    result = (rand() % (hi_num - low_num)) + low_num;
-    return result;
 }
 
-void mostrarAyuda(){
-   printf("*** Ayuda ***\n");
-   printf("Uso:\n[-h] consulta [@servidor[:puerto]] [-a|-mx|-loc] [-r|-t]\nlas opciones entre corchetes son opcionales y las separadas por la barra vertical son alternativas excluyentes\n");
-   printf("Significado:\n -h\t muestra las opciones a utilizar y sus funcionalidades\n ");
-   printf("consulta\t dominio a resolver\n ");
-   printf("@servidor\t servidor deseado que resolvera la consulta\n ");
-   printf(":puerto\t debe usarse solamente con la opcion anterior. puerto deseado\n ");
-   printf("-a\t usado por defecto. obtiene la direccion IP de 'consulta'\n ");
-   printf("-mx\t obtiene el servidor a cargo de la recepcion de correos electronicos de 'consulta'\n");
-   printf("-loc\t obtiene la ubicacion geografica de 'consulta'\n");
-   printf("-r\t usado por defecto. obtiene la respuesta definitiva\n");
-   printf("-t\t se visualizan las respuestas parciales producidas hasta obtener la respuesta definitiva\n");
+/*
+*   Metodo utilizado para eliminar el caracter '@' del parametro del servidor
+*   Ejemplo: "@8.8.8.8" => "8.8.8.8"
+*   En caso de haber ingresado tambien un puerto, lo guardamos en una variable y lo eliminamos de la cadena de caracteres.
+*   Ejemplo "@8.8.8.8:53" => "8.8.8.8"
+*   La variable char *p sera la cadena de caracteres ingresado por el usuario para solicitar un servidor.
+*/
+
+void eliminarArrobaDeString(char *p)
+{
+    int yaElimineArroba = 0; //Variable para no borrar más arrobas en caso de que las haya
+                             //(El usuario siempre es impredecible)
+    char c = '@';
+    int voyPorPuerto = 0; //En caso de que ya este por el puerto -> no registrarlo en servidor
+    if (NULL == p)
+        return;
+    char *pDest = p; //Mismo que p (Apunta al principio del string)
+
+    while (*p) //Saco el arroba
+    {
+        if (*p != ':' && voyPorPuerto == 0)
+        { //Si no voy por puerto -> anoto servidor a no ser que sea @
+            if (*p != c || yaElimineArroba == 1)
+                *pDest++ = *p;
+            else
+            {
+                yaElimineArroba = 1;
+            }
+        }
+        else
+        { //Estamos en puerto! -> Registremos el numero luego del ':'
+            puertoIngresado = 1;
+            if (voyPorPuerto == 0)
+                voyPorPuerto = 1;
+            else
+            {
+
+                append(puerto, *p); //Concatenamos uno de los numeros del puerto
+            }
+        }
+        p++;
+    }
+    *pDest = '\0';
+}
+
+void consultaTrace()
+{
+
+    unsigned char prueba[100] = ""; //String vacio para solicitar consulta root
+
+    realizarConsulta(prueba, 2); //Pedimos nameservers a Root
+
+    if (cantidadNS < 1) //De no obtener dominios por el cual seguir, terminamos el programa
+    {
+        printf("No se han encontrado dominios para continuar la consulta solicitada. \n");
+        exit(EXIT_FAILURE);
+    }
+
+    int r = random_number(0, cantidadNS - 1); //Calculamos index aleatorio para buscar en los nameservers
+
+    printf("El root_nameserver aleatorio seleccionado es %s \n", nameservers[r]);
+
+    realizarConsulta(nameservers[r], 1); //Pedimos ipv4 a nameserver de root aleatorio
+    printf("El proximo server es : %s\n", proximo_server);
+    noEsDeInicio = 1; //Booleano necesario para detectar comienzo de bucle (la configuracion es distinta en el bucle)
+    seguirTrace = 1;  //Booleano necesario para controlar el seguimiento y detencion del bucle
+    //Inicio del bucle
+    while (seguirTrace)
+    {
+        if (necesitoIpNameserver == 0)      //si no necesito ip puedo realizar consulta iterativa con bit rd apagado
+        {
+            realizarConsulta(hostname, tipoQuery);
+            hostname[strlen(hostname) - 1] = '\0'; //Eliminamos el punto agregado por el metodo anterior.
+            if (seguirTrace == 1)
+            {
+                printf("El proximo server es : %s\n", proximo_server);
+            }
+        }
+        else
+        { //Necesito ip de un nameserver, en caso de no haberlos lanzo error.
+
+            if (cantidadNS < 1)
+            {
+                printf("Error: cantidad nameservers nula \n");
+                exit(EXIT_FAILURE);
+            }
+            r = random_number(0, cantidadNS - 1); //obtenemos un index aleatorio para elegir un nameserver
+            printf("El root_nameserver aleatorio es %s \n", nameservers[r]);
+            realizarConsulta(nameservers[r], 1); //Pedimos ipv4 a nameserver de root aleatorio
+            necesitoIpNameserver = 0; //ya no necesito un ip
+        }
+    }
 }
